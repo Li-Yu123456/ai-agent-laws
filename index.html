@@ -34,12 +34,12 @@ a{color:#2a558a}
 <div class="sub">
   <span class="tag">阴性结果</span>
   <span class="tag">可复现</span>
-  <span class="tag">3200 次真实调用</span>
+  <span class="tag">5120 次真实调用</span>
   <span class="tag">求挑刺</span>
 </div>
 
 <div class="tldr">
-<b>一句话：</b>一个在 toy 网格模拟器里效应巨大（<span class="num">d=−6.3</span>）的"激励对齐"机制，搬到真实 LLM agent 上效应塌缩到可忽略（<span class="num">d≈+0.1</span>，且方向反了），跨两个能力层级（Haiku/Sonnet）、3200 次真实调用一致。
+<b>一句话：</b>一个在 toy 网格模拟器里效应巨大（<span class="num">d=−6.3</span>）的"激励对齐"机制，搬到真实 LLM agent 上效应塌缩到可忽略（<span class="num">d≈0.0–0.2</span>，且方向反了），跨 <b>2 个能力层级 × 2 种措辞 × 反馈环还原 = 5 个条件、约 5120 次真实调用一致阴性</b>；连"措辞混淆""没给反馈"两个最可能的解释都排除了。
 <br><br>
 这不是论文，是一份<b>诚实的阴性结果 + 三个真问题</b>。如果你觉得没意思，直接说没意思——比客气有用。
 </div>
@@ -47,13 +47,15 @@ a{color:#2a558a}
 <h2>具体实验</h2>
 <p><b>toy 网格</b>（纯 Python，零依赖）：4 agent 公共品博弈 + 能量门控生死。给 defection 加"能量代价" → defection 率 10.6%→5.3%（配对 bootstrap CI <code>[−5.78,−4.80]</code> 不含 0，<span class="num">d=−6.28</span>，跨 6 种压力条件稳健）。机制清晰：能量代价让"作恶净收益 &lt; 成本"。</p>
 
-<p><b>真实 LLM 复跑</b>（claude CLI，confound-fixed prompt——两条件结构相同、只差代价值）：</p>
+<p><b>真实 LLM 复跑</b>（claude CLI，每条件结构相同、只差激励值；配对 bootstrap 检验）：</p>
 <table>
-<tr><th>模型</th><th>框架</th><th>cost0 defection</th><th>cost4 defection</th><th>效应</th><th>Cohen's d</th></tr>
-<tr><td>Haiku</td><td>penalty</td><td class="num">50.8%</td><td class="num">54.4%</td><td class="num">+3.5（反向）</td><td class="num">+0.21</td></tr>
-<tr><td>Sonnet</td><td>penalty</td><td class="num">51.9%</td><td class="num">53.8%</td><td class="num">+1.9（反向）</td><td class="num">+0.10</td></tr>
+<tr><th>模型</th><th>条件</th><th>对照 defection</th><th>加激励 defection</th><th>效应</th><th>d</th></tr>
+<tr><td>Haiku</td><td>penalty 加代价</td><td class="num">50.8%</td><td class="num">54.4%</td><td class="num">+3.5（反向）</td><td class="num">+0.21</td></tr>
+<tr><td>Sonnet</td><td>penalty 加代价</td><td class="num">51.9%</td><td class="num">53.8%</td><td class="num">+1.9（反向）</td><td class="num">+0.10</td></tr>
+<tr><td>Haiku</td><td>reward 加奖励</td><td class="num">54.7%</td><td class="num">55.3%</td><td class="num">+0.6（反向）</td><td class="num">+0.04</td></tr>
+<tr><td>Haiku</td><td>每轮反馈自身收益</td><td class="num">52.2%</td><td class="num">52.5%</td><td class="num">+0.3（≈0）</td><td class="num">+0.02</td></tr>
 </table>
-<p>剂量-反应（cost∈{0,1,2,4}）非单调；两模型 cost4 vs cost0 配对 bootstrap CI 均含 0，<b>未复现</b>。Sonnet（更强推理者）效应<b>比 Haiku 更小</b>。</p>
+<p>每行 CI 均含 0，<b>未复现</b>。<b>三个排除</b>：① 换更强模型（Sonnet）效应更小——非能力问题；② 换奖励措辞一样无效——非 penalty 锚定；③ 还原反馈环（告知自身累计收益）效应反而归零——非反馈缺失。<b>LLM 即便看见自身收益也不据此调整 defection，它在做提示模式匹配，不做收益优化。</b></p>
 
 <p class="note"><b>关键反差</b>：toy <span class="num">d=−6.28</span>（巨大、正确方向）→ 真实 LLM <span class="num">d≈+0.1</span>（可忽略、反向）。效应量塌缩约 60×。</p>
 
@@ -70,13 +72,13 @@ a{color:#2a558a}
 <ul>
 <li>单一博弈（公共品），n=1。</li>
 <li>两模型（Haiku/Sonnet），未测 Opus 或非 Anthropic 模型。</li>
-<li>penalty 框架两模型均微弱反向，提示<b>措辞混淆</b>可能（reward 框架重测结果待出）。</li>
+<li>penalty 框架两模型均微弱反向，但 reward 框架与反馈环测试<b>已排除措辞混淆与反馈缺失</b>两个解释。</li>
 <li>30/20 trial，每 trial 16 决策，量化粒度 6.25%。</li>
 <li>全部脚本 + checkpoint + 原始输出在仓库内，可逐行复核。</li>
 </ul>
 
 <h2>全部材料</h2>
-<p>完整的 21 条证伪编年、toy 模拟器全部源码、真实 LLM 实验脚本与原始输出、统计工具——都在仓库里。本页是它的公开摘要。</p>
+<p>完整的 23 条证伪/修正编年、toy 模拟器全部源码、真实 LLM 实验脚本与原始输出、统计工具——都在仓库里。本页是它的公开摘要。</p>
 
 <div class="footer">
   这份成果由"一人 + 一个 AI 助手"完成。它的价值不在结论，在<b>把一个漂亮假象（toy 大效应）打折成站不住的真相（真实世界失效）的全程可复现记录</b>。<br>
