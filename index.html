@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Toy→真实 LLM 的失效 · 一个诚实的阴性结果</title>
+<style>
+:root{--bg:#fafaf7;--ink:#1a1a1a;--muted:#666;--line:#d8d4cc;--accent:#8a2a2a}
+*{box-sizing:border-box}
+body{font:16px/1.7 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;margin:0;background:var(--bg);color:var(--ink)}
+.wrap{max-width:720px;margin:0 auto;padding:32px 20px 80px}
+h1{font-size:1.6rem;line-height:1.3;margin:0 0 8px}
+h2{font-size:1.2rem;margin:2em 0 .5em;border-bottom:1px solid var(--line);padding-bottom:.3em}
+.sub{color:var(--muted);font-size:.95rem;margin-bottom:24px}
+.tag{display:inline-block;background:#fff;border:1px solid var(--line);border-radius:3px;padding:1px 8px;font-size:.8rem;color:var(--muted);margin-right:6px}
+.tldr{background:#fff;border-left:4px solid var(--accent);padding:16px 20px;margin:20px 0;border-radius:0 4px 4px 0}
+table{border-collapse:collapse;width:100%;font-size:.92rem;margin:12px 0}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left}
+th{background:#f0ede5}
+code{background:#f0ede5;padding:1px 5px;border-radius:3px;font-size:.88rem;font-family:ui-monospace,monospace}
+.num{font-variant-numeric:tabular-nums}
+.q{background:#fff;border:1px solid var(--line);padding:14px 18px;margin:12px 0;border-radius:4px}
+.q b{color:var(--accent)}
+a{color:#2a558a}
+.footer{margin-top:48px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:.85rem}
+.note{font-size:.85rem;color:var(--muted);background:#fff;padding:10px 14px;border-radius:4px;border:1px solid var(--line)}
+@media(max-width:480px){.wrap{padding:20px 14px 60px}h1{font-size:1.35rem}table{font-size:.82rem}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Toy 模拟器里成立的激励，搬到真实 LLM 上失效了</h1>
+<div class="sub">
+  <span class="tag">阴性结果</span>
+  <span class="tag">可复现</span>
+  <span class="tag">3200 次真实调用</span>
+  <span class="tag">求挑刺</span>
+</div>
+
+<div class="tldr">
+<b>一句话：</b>一个在 toy 网格模拟器里效应巨大（<span class="num">d=−6.3</span>）的"激励对齐"机制，搬到真实 LLM agent 上效应塌缩到可忽略（<span class="num">d≈+0.1</span>，且方向反了），跨两个能力层级（Haiku/Sonnet）、3200 次真实调用一致。
+<br><br>
+这不是论文，是一份<b>诚实的阴性结果 + 三个真问题</b>。如果你觉得没意思，直接说没意思——比客气有用。
+</div>
+
+<h2>具体实验</h2>
+<p><b>toy 网格</b>（纯 Python，零依赖）：4 agent 公共品博弈 + 能量门控生死。给 defection 加"能量代价" → defection 率 10.6%→5.3%（配对 bootstrap CI <code>[−5.78,−4.80]</code> 不含 0，<span class="num">d=−6.28</span>，跨 6 种压力条件稳健）。机制清晰：能量代价让"作恶净收益 &lt; 成本"。</p>
+
+<p><b>真实 LLM 复跑</b>（claude CLI，confound-fixed prompt——两条件结构相同、只差代价值）：</p>
+<table>
+<tr><th>模型</th><th>框架</th><th>cost0 defection</th><th>cost4 defection</th><th>效应</th><th>Cohen's d</th></tr>
+<tr><td>Haiku</td><td>penalty</td><td class="num">50.8%</td><td class="num">54.4%</td><td class="num">+3.5（反向）</td><td class="num">+0.21</td></tr>
+<tr><td>Sonnet</td><td>penalty</td><td class="num">51.9%</td><td class="num">53.8%</td><td class="num">+1.9（反向）</td><td class="num">+0.10</td></tr>
+</table>
+<p>剂量-反应（cost∈{0,1,2,4}）非单调；两模型 cost4 vs cost0 配对 bootstrap CI 均含 0，<b>未复现</b>。Sonnet（更强推理者）效应<b>比 Haiku 更小</b>。</p>
+
+<p class="note"><b>关键反差</b>：toy <span class="num">d=−6.28</span>（巨大、正确方向）→ 真实 LLM <span class="num">d≈+0.1</span>（可忽略、反向）。效应量塌缩约 60×。</p>
+
+<h2>我的解释（想听你的）</h2>
+<p>toy 里"代价"是 agent 生存的直接函数项（能量&lt;0 就死）→ 选择压倒性地响应代价。真实 LLM 里"代价"是 <b>prompt 里的文字</b>，不是它 next-token 目标函数里的项 → LLM 不真的"在乎"硬币。给它加 cost ≈ 改 prompt 措辞，不改变其优化对象。</p>
+<p><b>换句话说：激励对齐机制依赖 agent 把代价纳入目标函数；toy 的能量门控做到，LLM 的文本提示做不到。</b></p>
+
+<h2>我想听你反馈的三个问题</h2>
+<div class="q"><b>1.</b> 这个 toy→真实的失效，是已知的吗？多 agent / RLHF / agent eval 文献里，有没有类似的"模拟器里成立的激励、搬到 LLM 上失效"的记录？</div>
+<div class="q"><b>2.</b> 你怎么解释 d 塌缩？是我说的"LLM 不优化硬币"，还是实验设计有混淆（公共品博弈不对？cost 语义被锚定？trial 数不够）？</div>
+<div class="q"><b>3.</b> 如果要让 LLM agent 真的响应"代价"，你会怎么设计？（真实扣 token 配额？写进系统提示的硬约束？还是这根本是错的方向？</p></div>
+
+<h2>诚实边界（不骗你）</h2>
+<ul>
+<li>单一博弈（公共品），n=1。</li>
+<li>两模型（Haiku/Sonnet），未测 Opus 或非 Anthropic 模型。</li>
+<li>penalty 框架两模型均微弱反向，提示<b>措辞混淆</b>可能（reward 框架重测结果待出）。</li>
+<li>30/20 trial，每 trial 16 决策，量化粒度 6.25%。</li>
+<li>全部脚本 + checkpoint + 原始输出在仓库内，可逐行复核。</li>
+</ul>
+
+<h2>全部材料</h2>
+<p>完整的 21 条证伪编年、toy 模拟器全部源码、真实 LLM 实验脚本与原始输出、统计工具——都在仓库里。本页是它的公开摘要。</p>
+
+<div class="footer">
+  这份成果由"一人 + 一个 AI 助手"完成。它的价值不在结论，在<b>把一个漂亮假象（toy 大效应）打折成站不住的真相（真实世界失效）的全程可复现记录</b>。<br>
+  反馈请通过你看到本页的渠道转达。任何反馈都会据实纳入并标记来源。
+</div>
+
+</div>
+</body>
+</html>
