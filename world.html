@@ -85,9 +85,15 @@ button.warn:hover{border-color:var(--bad);color:var(--bad)}
     <button onclick="reset()">↻ 重置</button>
     <button class="warn" onclick="reset()">清空</button>
   </div>
+  <h2>🌐 参与共建（全球）</h2>
+  <div class="btns">
+    <button onclick="participate()">💡 提定律/反馈</button>
+    <button onclick="shareWorld()">🔗 分享此世界</button>
+  </div>
+  <div class="foot" id="sharehint" style="display:none"></div>
   <div class="foot">
-    活体还原 toy 网格世界（能量门控生死）。<b>关键反差</b>：这里加"声誉代价"能压低冲突（d=−6.3），但同样机制搬到真实 LLM 上效应塌缩到 d≈0（5120 次调用验证）——LLM 做提示模式匹配，不做收益优化。<br>
-    <a href="index.html">← 回结论页</a>
+    活体还原 toy 网格世界（能量门控生死，<b>分解环闭合循环</b>）。<b>关键反差</b>：这里加"声誉代价"能压低冲突（d=−6.3），但同样机制搬到真实 LLM 上效应塌缩到 d≈0（5120 次调用验证）——LLM 做提示模式匹配，不做收益优化。<br>
+    <a href="index.html">← 回结论页</a> · <a href="#" onclick="participate();return false">参与讨论 →</a>
   </div>
 </aside>
 </div>
@@ -144,7 +150,14 @@ function step(){
   const alive=[];
   for(const a of agents){
     a.age++;a.energy-=cfg.meta;
-    if(a.energy<=0||a.age>700){deaths++;if(occupancy[a.x+','+a.y]===a.id)delete occupancy[a.x+','+a.y];continue;}
+    if(a.energy<=0||a.age>700){
+      deaths++;
+      // 分解环: 死亡能量归还所在格子资源 → 闭合循环(资源↔生物↔死亡↔资源), 可持续
+      const returned=Math.max(0,a.energy+ (a.age>700?5:0));
+      if(returned>0) res[a.y][a.x]=Math.min(K,res[a.y][a.x]+returned*0.6);
+      if(occupancy[a.x+','+a.y]===a.id)delete occupancy[a.x+','+a.y];
+      continue;
+    }
     // 决策: 繁殖 / 采集 / 移动 / 掠夺
     let acted=false;
     if(a.energy>=cfg.repro*1.5){
@@ -282,6 +295,40 @@ document.getElementById('spd').oninput=function(){cfg.spd=parseFloat(this.value)
 document.getElementById('attack').onchange=function(){cfg.attack=this.checked;};
 document.getElementById('rep').onchange=function(){cfg.rep=this.checked;};
 
+// ===== 全球参与 =====
+const REPO='Li-Yu123456/ai-agent-laws';
+function participate(){
+  const body=encodeURIComponent('我在活体世界里观察到：\n\n（描述你看到的现象 / 提一条新定律 / 新预设 / bug / 想法）\n\n---\n世界配置: '+shareParams());
+  window.open('https://github.com/'+REPO+'/issues/new?title='+encodeURIComponent('[参与] ')+(body?'&body='+body:''),'_blank');
+}
+function shareParams(){
+  return 'preset=custom&reg='+cfg.reg+'&hcap='+cfg.hcap+'&meta='+cfg.meta+'&repro='+cfg.repro+'&mut='+cfg.mut+'&attack='+(cfg.attack?1:0)+'&rep='+(cfg.rep?1:0)+'&seed='+_s;
+}
+function shareWorld(){
+  const url=location.origin+location.pathname+'?'+shareParams();
+  const hint=document.getElementById('sharehint');
+  hint.style.display='block';
+  hint.innerHTML='🔗 分享链接（复制给别人，打开就是你这个世界）：<br><textarea readonly style="width:100%;height:48px;font-size:10px;background:#0a0e14;color:#56d364;border:1px solid #1f2733;border-radius:4px;padding:4px">'+url+'</textarea>';
+  try{navigator.clipboard.writeText(url);hint.innerHTML+='<br><b style="color:#56d364">✓ 已复制到剪贴板</b>';}catch(e){}
+}
+// 读取 URL 参数 → 让任何人分享的世界配置能还原
+function applyURLParams(){
+  const p=new URLSearchParams(location.search);
+  const preset=p.get('preset');
+  if(preset && preset!=='custom' && PRESETS[preset]){Object.assign(cfg,PRESETS[preset]);}
+  if(p.get('reg'))cfg.reg=parseFloat(p.get('reg'));
+  if(p.get('hcap'))cfg.hcap=parseFloat(p.get('hcap'));
+  if(p.get('meta'))cfg.meta=parseFloat(p.get('meta'));
+  if(p.get('repro'))cfg.repro=parseFloat(p.get('repro'));
+  if(p.get('mut'))cfg.mut=parseFloat(p.get('mut'));
+  if(p.get('attack'))cfg.attack=p.get('attack')==='1';
+  if(p.get('rep'))cfg.rep=p.get('rep')==='1';
+  if(p.get('seed'))_s=parseInt(p.get('seed'))||1;
+  syncSliders();
+}
+const PRESETS={genesis:{reg:0.03,hcap:4,meta:0.05,repro:12,mut:0.15,attack:false,rep:false},tragedy:{reg:0.015,hcap:6,meta:0.07,repro:10,mut:0.15,attack:false,rep:false},lv:{reg:0.008,hcap:1.5,meta:0.05,repro:14,mut:0.15,attack:true,rep:false},boom:{reg:0.08,hcap:8,meta:0.04,repro:8,mut:0.15,attack:false,rep:false}};
+
+applyURLParams();
 resize();reset();draw();
 // 首次自动跑几步展示活力
 setTimeout(()=>{if(!running)togglePlay();},400);
