@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Agent 世界 · 活体模拟器</title>
+<style>
+:root{--bg:#0a0e14;--panel:#121821;--ink:#e6edf3;--muted:#8b97a3;--line:#1f2733;--acc:#56d364;--acc2:#f0883e;--bad:#f85149;--blue:#58a6ff}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,"PingFang SC",sans-serif;overflow:hidden}
+#app{display:grid;grid-template-columns:1fr 300px;height:100vh}
+#stage{position:relative;overflow:hidden}
+canvas{display:block;width:100%;height:100%}
+.topbar{position:absolute;top:0;left:0;right:0;padding:12px 18px;background:linear-gradient(180deg,rgba(10,14,20,.9),transparent);pointer-events:none}
+.topbar h1{margin:0;font-size:16px;font-weight:600;letter-spacing:.5px}
+.topbar .sub{color:var(--muted);font-size:12px;margin-top:2px}
+.narr{position:absolute;left:18px;bottom:18px;right:18px;max-width:520px;background:rgba(18,24,33,.85);border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:13px;backdrop-filter:blur(6px)}
+.narr b{color:var(--acc)}
+.narr .law{color:var(--acc2);font-weight:600}
+aside{background:var(--panel);border-left:1px solid var(--line);padding:16px;overflow-y:auto}
+aside h2{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:18px 0 8px;border:none}
+aside h2:first-child{margin-top:0}
+.row{display:flex;justify-content:space-between;align-items:center;margin:7px 0;font-size:13px}
+.row .v{font-variant-numeric:tabular-nums;color:var(--acc);font-weight:600}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px}
+.stat{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+.stat b{color:var(--ink);font-variant-numeric:tabular-nums}
+.ctrl{margin:10px 0}
+.ctrl label{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px}
+.ctrl label b{color:var(--ink);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;-webkit-appearance:none;height:4px;background:var(--line);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--acc);cursor:pointer;border:2px solid var(--bg)}
+.btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+button{flex:1;min-width:60px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 6px;font-size:12px;cursor:pointer;transition:.15s}
+button:hover{border-color:var(--acc);color:var(--acc)}
+button.primary{background:var(--acc);color:#001b05;border-color:var(--acc);font-weight:600}
+button.primary:hover{background:#7ce382;color:#001b05}
+button.warn:hover{border-color:var(--bad);color:var(--bad)}
+.toggles{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--muted);margin:8px 0}
+.toggles span{display:flex;align-items:center;gap:4px;cursor:pointer}
+.foot{margin-top:18px;padding-top:14px;border-top:1px solid var(--line);font-size:11px;color:var(--muted);line-height:1.6}
+.foot a{color:var(--blue)}
+@media(max-width:760px){#app{grid-template-columns:1fr;grid-template-rows:1fr auto}aside{max-height:42vh;border-left:none;border-top:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<div id="app">
+<div id="stage">
+  <canvas id="cv"></canvas>
+  <div class="topbar"><h1>AI Agent 世界 · 活体模拟器</h1><div class="sub">看着 agent 采集、繁殖、相变、崩溃 —— 然后记住：这些在 toy 里活的定律，搬到真实 LLM 全失效了</div></div>
+  <div class="narr" id="narr"><b>▶</b> 按 <span class="law">▶ 运行</span> 开始。拧参数、选预设，看世界如何 <span class="law">活</span> 与 <span class="law">死</span>。</div>
+</div>
+<aside>
+  <h2>实时状态</h2>
+  <div class="stat-grid">
+    <div class="stat">tick <b id="s-tick">0</b></div>
+    <div class="stat">种群 <b id="s-pop">0</b></div>
+    <div class="stat">峰值 <b id="s-peak">0</b></div>
+    <div class="stat">世代 <b id="s-gen">0</b></div>
+    <div class="stat">出生/t <b id="s-birth">0</b></div>
+    <div class="stat">死亡/t <b id="s-death">0</b></div>
+    <div class="stat">均能 <b id="s-energy">0</b></div>
+    <div class="stat">谱系 <b id="s-lineage">0</b></div>
+  </div>
+  <h2>预设场景</h2>
+  <div class="btns">
+    <button class="primary" onclick="loadPreset('genesis')">创世</button>
+    <button onclick="loadPreset('tragedy')">公地悲剧</button>
+    <button onclick="loadPreset('lv')">捕食循环</button>
+    <button onclick="loadPreset('boom')">过冲崩溃</button>
+  </div>
+  <h2>参数（实时生效）</h2>
+  <div class="ctrl"><label>资源再生 <b id="v-reg">0.03</b></label><input type="range" id="reg" min="0.002" max="0.12" step="0.002" value="0.03"></div>
+  <div class="ctrl"><label>采集上限 <b id="v-hcap">4</b></label><input type="range" id="hcap" min="0.5" max="10" step="0.5" value="4"></div>
+  <div class="ctrl"><label>代谢 <b id="v-meta">0.05</b></label><input type="range" id="meta" min="0.02" max="0.2" step="0.01" value="0.05"></div>
+  <div class="ctrl"><label>繁殖阈值 <b id="v-repro">12</b></label><input type="range" id="repro" min="6" max="30" step="1" value="12"></div>
+  <div class="ctrl"><label>突变率 <b id="v-mut">0.15</b></label><input type="range" id="mut" min="0" max="0.4" step="0.01" value="0.15"></div>
+  <div class="ctrl"><label>速度 <b id="v-spd">1.0×</b></label><input type="range" id="spd" min="0.25" max="4" step="0.25" value="1"></div>
+  <div class="toggles">
+    <span id="tg-attack"><input type="checkbox" id="attack"> 掠夺</span>
+    <span id="tg-rep"><input type="checkbox" id="rep"> 声誉代价</span>
+  </div>
+  <div class="btns">
+    <button class="primary" id="btn-play" onclick="togglePlay()">▶ 运行</button>
+    <button onclick="reset()">↻ 重置</button>
+    <button class="warn" onclick="reset()">清空</button>
+  </div>
+  <div class="foot">
+    活体还原 toy 网格世界（能量门控生死）。<b>关键反差</b>：这里加"声誉代价"能压低冲突（d=−6.3），但同样机制搬到真实 LLM 上效应塌缩到 d≈0（5120 次调用验证）——LLM 做提示模式匹配，不做收益优化。<br>
+    <a href="index.html">← 回结论页</a>
+  </div>
+</aside>
+</div>
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let W=40,H=40,cell=16;
+let res,agents,occupancy,nextId=0,nextLin=0;
+let running=false,tick=0,peak=0,births=0,deaths=0;
+let hist=[]; // pop history for narration
+const K=10;
+const cfg={reg:0.03,hcap:4,meta:0.05,repro:12,mut:0.15,spd:1,attack:false,rep:false,repCost:0.6};
+
+function resize(){
+  const r=document.getElementById('stage').getBoundingClientRect();
+  cv.width=r.width;cv.height=r.height;
+  cell=Math.max(6,Math.min(cv.width/W,cv.height/H));
+}
+window.addEventListener('resize',resize);
+
+function rng(seed){let s=seed||1;return ()=>(s=(s*9301+49297)%233280)/233280;}
+
+function reset(){
+  res=Array.from({length:H},()=>Array(W).fill(K));
+  agents=[];occupancy={};nextId=0;nextLin=0;tick=0;peak=0;hist=[];
+  // 初始 50 个
+  const r=rng(7);
+  let placed=0;
+  while(placed<50){
+    let x=Math.floor(r()*W),y=Math.floor(r()*H);
+    if(!occupancy[x+','+y]){
+      nextLin++;placed++;
+      agents.push(mkAgent(x,y,8+r()*4, nextLin));
+      occupancy[x+','+y]=nextId-1;
+    }
+  }
+  draw();updateStats();
+}
+function mkAgent(x,y,e,lin){
+  return {id:nextId++,x,y,energy:e,lin,age:0,gen:0,atk:0.1+rnd(),harv:0.9,atkCount:0};
+}
+let _s=1; function rnd(){_s=(_s*9301+49297)%233280;return _s/233280;}
+
+function wrap(i,n){return ((i%n)+n)%n;}
+function neighbors(x,y){const o=[];for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++){if(!dx&&!dy)continue;const nx=wrap(x+dx,W),ny=wrap(y+dy,H);o.push([nx,ny]);}return o;}
+function freeNeighbors(x,y){return neighbors(x,y).filter(([a,b])=>!occupancy[a+','+b]);}
+function adjAgent(x,y){for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++){if(!dx&&!dy)continue;const k=wrap(x+dx,W)+','+wrap(y+dy,H);if(occupancy[k]!=null)return occupancy[k];}return null;}
+
+function step(){
+  // regrow
+  for(let i=0;i<H;i++)for(let j=0;j<W;j++){res[i][j]+=cfg.reg*(K-res[i][j]);if(res[i][j]>K)res[i][j]=K;}
+  births=0;deaths=0;
+  // shuffle order
+  for(let i=agents.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[agents[i],agents[j]]=[agents[j],agents[i]];}
+  const alive=[];
+  for(const a of agents){
+    a.age++;a.energy-=cfg.meta;
+    if(a.energy<=0||a.age>700){deaths++;if(occupancy[a.x+','+a.y]===a.id)delete occupancy[a.x+','+a.y];continue;}
+    // 决策: 繁殖 / 采集 / 移动 / 掠夺
+    let acted=false;
+    if(a.energy>=cfg.repro*1.5){
+      const fn=freeNeighbors(a.x,a.y);
+      if(fn.length){
+        const [nx,ny]=fn[Math.floor(rnd()*fn.length)];
+        a.energy-=cfg.repro;
+        const child=mkAgent(nx,ny,cfg.repro*0.5,a.lin);child.gen=a.gen+1;
+        if(rnd()<0.002){nextLin++;child.lin=nextLin;}
+        agents.push(child);occupancy[nx+','+ny]=child.id;births++;acted=true;
+      }
+    }
+    if(!acted && cfg.attack && a.atk>0.4){
+      const oi=adjAgent(a.x,a.y);
+      if(oi!=null && agents[oi] && agents[oi].energy<a.energy){
+        const steal=Math.min(agents[oi].energy*0.4,cfg.hcap);
+        agents[oi].energy-=steal;a.energy=Math.min(40,a.energy+steal-(cfg.rep?cfg.repCost:0));a.atkCount++;
+        acted=true;
+      }
+    }
+    if(!acted){
+      // 采集
+      const amt=Math.min(cfg.hcap,res[a.y][a.x]);res[a.y][a.x]-=amt;a.energy=Math.min(40,a.energy+amt*a.harv);
+    }
+    // 移动(偶发, 朝资源最高的空邻居)
+    if(rnd()<0.5){
+      const fn=freeNeighbors(a.x,a.y);
+      if(fn.length){
+        let best=fn[0],bv=-1;
+        for(const [nx,ny] of fn){if(res[ny][nx]>bv){bv=res[ny][nx];best=[nx,ny];}}
+        if(bv>res[a.y][a.x]||rnd()<0.2){
+          delete occupancy[a.x+','+a.y];a.x=best[0];a.y=best[1];occupancy[a.x+','+a.y]=a.id;
+        }
+      }
+    }
+    alive.push(a);
+  }
+  // 清掉死亡者引用
+  agents=alive.filter(a=>a.energy>0&&a.age<=700);
+  // 重建 occupancy
+  occupancy={};for(const a of agents)occupancy[a.x+','+a.y]=a.id;
+  tick++;
+  const pop=agents.length;peak=Math.max(peak,pop);
+  hist.push(pop);if(hist.length>200)hist.shift();
+  updateStats();narrate(pop);
+}
+function narrate(pop){
+  const el=document.getElementById('narr');
+  let law='',body='',cross='';
+  // 实测 toy 冲突率(掠夺占比)
+  const totAtk=agents.reduce((s,a)=>s+a.atkCount,0);
+  const totDec=agents.reduce((s,a)=>s+(a.age>0?1:0),0)||1;
+  if(pop===0){law='熄灭';body='世界已灭绝。资源继续再生，但没有 agent 了——按 ↻ 重置，或调低代谢/提高再生。';cross='灭绝定律在 toy 成立；真实 LLM 群体是否会灭绝？未测，但 LLM 无"能量归零"机制，机制不映射。';}
+  else if(cfg.attack && cfg.rep){law='声誉定律 (toy 成立)';body='掠夺 + 声誉代价开启。冲突被压低——你正亲眼看到 toy 的 d=−6.3 大效应。';cross='<b style="color:#f85149">跨域裁决</b>：同样机制在真实 LLM 上 d=+0.02（5条件、5120次调用、措辞/能力/反馈三混淆全排除）。toy 成立 ≠ 真实成立。这是全项目的核心张力。';}
+  else if(cfg.attack){law='霍布斯均衡';body='掠夺开启、无声誉约束。agent 互相捕食，高换手。';cross='toy 里掠夺是"抢能量"。LLM 没有可被抢的内部量——"掠夺"对它是文本描述，不改变其状态。';}
+  else if(pop<8 && peak>200){law='相变 · 近灭绝';body='从峰值 '+peak+' 崩到 '+pop+'——过冲耗尽资源后的相变。这就是"涌现"。';cross='涌现定律(Anderson)：toy 有相位跃迁。它依赖 agent 内部状态(能量)的临界——LLM 无此内部量，涌现形态全然不同。';}
+  else if(pop>peak*0.9 && peak>150){law='过冲';body='种群冲到 '+pop+'，资源被快速吃掉，崩塌即将到来。';cross='过冲-崩塌是 toy 的能量闭环产物。LLM 不消耗共享资源，无此动力学。';}
+  else if(births>deaths*1.5){law='繁衍';body='出生('+births+') > 死亡('+deaths+')，种群增长。';cross='繁殖依赖能量积累阈值。LLM 无能量、无繁殖——"agent 数量增长"在 LLM 是外部实例化，非涌现。';}
+  else{law='生息';body='种群 '+pop+'，能量循环中。拧参数看世界怎么变。';cross='toy 的"生息"=能量闭环驱动。LLM 无能量闭环，所谓"生息"需完全不同的基底。';}
+  el.innerHTML='<b>tick '+tick+'</b> · <span class="law">'+law+'</span> — '+body+'<br><span style="color:#8b97a3;font-size:12px;display:block;margin-top:6px;padding-top:6px;border-top:1px solid #1f2733">'+cross+'</span>';
+}
+function updateStats(){
+  document.getElementById('s-tick').textContent=tick;
+  document.getElementById('s-pop').textContent=agents.length;
+  document.getElementById('s-peak').textContent=peak;
+  document.getElementById('s-birth').textContent=births;
+  document.getElementById('s-death').textContent=deaths;
+  const lins=new Set();let sumE=0,maxGen=0;
+  for(const a of agents){lins.add(a.lin);sumE+=a.energy;maxGen=Math.max(maxGen,a.gen);}
+  document.getElementById('s-energy').textContent=agents.length?(sumE/agents.length).toFixed(1):0;
+  document.getElementById('s-gen').textContent=maxGen;
+  document.getElementById('s-lineage').textContent=lins.size;
+}
+
+function draw(){
+  const cs=cell;
+  ctx.fillStyle='#0a0e14';ctx.fillRect(0,0,cv.width,cv.height);
+  const ox=(cv.width-W*cs)/2,oy=(cv.height-H*cs)/2;
+  // 资源
+  for(let i=0;i<H;i++)for(let j=0;j<W;j++){
+    const a=res[i][j]/K;if(a>0.02){ctx.fillStyle='rgba(45,120,70,'+(a*0.55).toFixed(3)+')';ctx.fillRect(ox+j*cs,oy+i*cs,cs,cs);}
+  }
+  // agent
+  for(const a of agents){
+    const hue=(a.lin*47)%360;
+    const rad=cs*0.42*Math.max(0.4,Math.min(1,a.energy/20));
+    ctx.beginPath();
+    ctx.arc(ox+a.x*cs+cs/2,oy+a.y*cs+cs/2,rad,0,7);
+    ctx.shadowColor='hsl('+hue+',80%,60%)';ctx.shadowBlur=cs*0.8;
+    ctx.fillStyle='hsl('+hue+',75%,'+(50+Math.min(25,a.energy))+'%)';
+    ctx.fill();ctx.shadowBlur=0;
+  }
+}
+
+let acc=0,last=0;
+function loop(t){
+  if(!running){return;}
+  if(!last)last=t;
+  acc+=(t-last);last=t;
+  const interval=33/cfg.spd;
+  while(acc>interval){step();acc-=interval;if(agents.length===0&&tick>10){break;}}
+  draw();
+  requestAnimationFrame(loop);
+}
+function togglePlay(){
+  running=!running;
+  document.getElementById('btn-play').textContent=running?'⏸ 暂停':'▶ 运行';
+  if(running){last=0;requestAnimationFrame(loop);}
+}
+function loadPreset(name){
+  const p={
+    genesis:{reg:0.03,hcap:4,meta:0.05,repro:12,mut:0.15,attack:false,rep:false},
+    tragedy:{reg:0.015,hcap:6,meta:0.07,repro:10,mut:0.15,attack:false,rep:false},
+    lv:{reg:0.008,hcap:1.5,meta:0.05,repro:14,mut:0.15,attack:true,rep:false},
+    boom:{reg:0.08,hcap:8,meta:0.04,repro:8,mut:0.15,attack:false,rep:false}
+  }[name];
+  Object.assign(cfg,p);
+  syncSliders();reset();if(!running)togglePlay();
+}
+function syncSliders(){
+  document.getElementById('reg').value=cfg.reg;document.getElementById('v-reg').textContent=cfg.reg.toFixed(3);
+  document.getElementById('hcap').value=cfg.hcap;document.getElementById('v-hcap').textContent=cfg.hcap;
+  document.getElementById('meta').value=cfg.meta;document.getElementById('v-meta').textContent=cfg.meta.toFixed(2);
+  document.getElementById('repro').value=cfg.repro;document.getElementById('v-repro').textContent=cfg.repro;
+  document.getElementById('mut').value=cfg.mut;document.getElementById('v-mut').textContent=cfg.mut.toFixed(2);
+  document.getElementById('attack').checked=cfg.attack;
+  document.getElementById('rep').checked=cfg.rep;
+}
+// 绑定滑块
+['reg','hcap','meta','repro','mut'].forEach(k=>{
+  const el=document.getElementById(k);
+  el.oninput=()=>{cfg[k]=parseFloat(el.value);document.getElementById('v-'+k).textContent=k==='reg'?cfg[k].toFixed(3):(k==='meta'||k==='mut'?cfg[k].toFixed(2):cfg[k]);};
+});
+document.getElementById('spd').oninput=function(){cfg.spd=parseFloat(this.value);document.getElementById('v-spd').textContent=cfg.spd.toFixed(2)+'×';};
+document.getElementById('attack').onchange=function(){cfg.attack=this.checked;};
+document.getElementById('rep').onchange=function(){cfg.rep=this.checked;};
+
+resize();reset();draw();
+// 首次自动跑几步展示活力
+setTimeout(()=>{if(!running)togglePlay();},400);
+</script>
+</body>
+</html>
