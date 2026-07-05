@@ -83,7 +83,7 @@ button.warn:hover{border-color:var(--bad);color:var(--bad)}
   <div class="btns">
     <button class="primary" id="btn-play" onclick="togglePlay()">▶ 运行</button>
     <button onclick="reset()">↻ 重置</button>
-    <button class="warn" onclick="reset()">清空</button>
+    <button id="btn-sound" onclick="toggleSound()">🔊 声音</button>
   </div>
   <h2>🌐 参与共建（全球）</h2>
   <div class="btns">
@@ -202,7 +202,7 @@ function step(){
   tick++;
   const pop=agents.length;peak=Math.max(peak,pop);
   hist.push(pop);if(hist.length>200)hist.shift();
-  updateStats();narrate(pop);
+  updateStats();narrate(pop);audioUpdate(pop);
 }
 function narrate(pop){
   const el=document.getElementById('narr');
@@ -327,6 +327,42 @@ function applyURLParams(){
   syncSliders();
 }
 const PRESETS={genesis:{reg:0.03,hcap:4,meta:0.05,repro:12,mut:0.15,attack:false,rep:false},tragedy:{reg:0.015,hcap:6,meta:0.07,repro:10,mut:0.15,attack:false,rep:false},lv:{reg:0.008,hcap:1.5,meta:0.05,repro:14,mut:0.15,attack:true,rep:false},boom:{reg:0.08,hcap:8,meta:0.04,repro:8,mut:0.15,attack:false,rep:false}};
+
+// ===== 世界声音引擎 (动力学→音乐, 纯合成) =====
+let actx=null,droneOsc,droneOsc2,droneGain,droneFilter,soundOn=false;
+const PENTA=[261.6,293.7,329.6,392.0,440.0,523.3];
+function toggleSound(){
+  soundOn=!soundOn;const btn=document.getElementById('btn-sound');
+  if(soundOn){
+    if(!actx){actx=new(window.AudioContext||window.webkitAudioContext)();
+      // 双正弦 drone (根音+五度, 温暖和弦)
+      droneOsc=actx.createOscillator();droneOsc.type='sine';droneOsc.frequency.value=130.8;
+      droneOsc2=actx.createOscillator();droneOsc2.type='sine';droneOsc2.frequency.value=196.0;
+      droneFilter=actx.createBiquadFilter();droneFilter.type='lowpass';droneFilter.frequency.value=600;
+      droneGain=actx.createGain();droneGain.gain.value=0;
+      droneOsc.connect(droneFilter);droneOsc2.connect(droneFilter);droneFilter.connect(droneGain);droneGain.connect(actx.destination);
+      droneOsc.start();droneOsc2.start();}
+    if(actx.state==='suspended')actx.resume();
+    btn.textContent='🔊 ✅';
+  }else{if(droneGain)droneGain.gain.setTargetAtTime(0,actx.currentTime,0.5);btn.textContent='🔊 声音';}
+}
+let lastAT=0;
+function audioUpdate(pop){
+  if(!soundOn||!actx)return;const t=actx.currentTime;
+  if(tick-lastAT<5)return;lastAT=tick;  // 每5tick更新, 慢
+  const ni=Math.min(PENTA.length-1,Math.floor(pop/300));
+  // drone 频率: 慢渐变(3秒), 避免警笛效应
+  if(droneOsc)droneOsc.frequency.setTargetAtTime(PENTA[ni]/2,t,3.0);
+  if(droneOsc2)droneOsc2.frequency.setTargetAtTime(PENTA[ni]*0.75,t,3.0); // 纯五度
+  const en=agents.length?agents.reduce((s,a)=>s+a.energy,0)/agents.length:0;
+  if(droneFilter)droneFilter.frequency.setTargetAtTime(300+en*20,t,3.0);
+  // 音量很低, 只做氛围
+  if(droneGain)droneGain.gain.setTargetAtTime(pop>0?0.025+Math.min(0.035,pop/8000):0,t,2.0);
+  // 出生 = 柔和钟音(正弦, 快衰减)
+  if(births>0&&births<25){for(let i=0;i<Math.min(births,2);i++){const b=actx.createOscillator();b.type='sine';b.frequency.value=PENTA[(ni+2)%PENTA.length];const g=actx.createGain();g.gain.setValueAtTime(0.08,t+i*0.08);g.gain.exponentialRampToValueAtTime(0.001,t+i*0.08+1.2);b.connect(g);g.connect(actx.destination);b.start(t+i*0.08);b.stop(t+i*0.08+1.2);}}
+  // 死亡 = 极低柔叹息
+  if(deaths>0&&deaths<30){const d=actx.createOscillator();d.type='sine';d.frequency.value=65;const dg=actx.createGain();dg.gain.setValueAtTime(0.04,t);dg.gain.exponentialRampToValueAtTime(0.001,t+1.5);d.connect(dg);dg.connect(actx.destination);d.start(t);d.stop(t+1.5);}
+}
 
 applyURLParams();
 resize();reset();draw();
