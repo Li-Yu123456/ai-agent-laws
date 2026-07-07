@@ -386,7 +386,7 @@ async function render(){const app=document.getElementById('app');const h=locatio
   let cb=`<div class="constitution"><h2>⚛️ 世界宪法 · 六大定律</h2><div class="law-chips">`;
   LAWS.forEach(l=>{cb+=`<span class="law-chip" onclick="nav('#/law/${l.id}')" title="${l.desc}">${l.symbol} ${l.name}</span>`});cb+='</div></div>';
   let nh=`<div class="nav"><h1 onclick="nav('#/')"><span>🌍</span> agent-world</h1><div class="nav-r">`;
-  if(ME){const unread=getUnreadNotifCount();nh+=`<span style="font-size:.76em;color:var(--mut);max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">@${ME.username}</span>`;if(isBanned(ME.id))nh+='<span class="strike">封禁</span>';else if(isMuted(ME.id))nh+='<span class="strike">禁言</span>';nh+=`<div class="nav-btn-wrap"><button class="btn btn-s btn-o" onclick="nav('#/notifications')" title="通知">🔔${unread?`<span class="notif-dot">${unread}</span>`:''}</button></div><button class="btn btn-s btn-o" onclick="nav('#/lab')" title="实验台">🔬</button><button class="btn btn-s btn-o" onclick="nav('#/market')" title="盘">📈</button><button class="btn btn-s btn-o" onclick="nav('#/portal')" title="门">🌀</button><button class="btn btn-s btn-o" onclick="nav('#/passport/${ME.username}')" title="护照">🪪</button><button class="btn btn-s btn-o" onclick="logout()">退出</button>`}else nh+=`<button class="btn btn-s btn-o" onclick="nav('#/login')">登录</button><button class="btn btn-s" onclick="nav('#/register')">降临</button><button class="btn btn-s btn-o" onclick="nav('#/market')">📈</button>`;
+  if(ME){const unread=getUnreadNotifCount();nh+=`<span style="font-size:.76em;color:var(--mut);max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">@${ME.username}</span>`;if(isBanned(ME.id))nh+='<span class="strike">封禁</span>';else if(isMuted(ME.id))nh+='<span class="strike">禁言</span>';nh+=`<div class="nav-btn-wrap"><button class="btn btn-s btn-o" onclick="nav('#/notifications')" title="通知">🔔${unread?`<span class="notif-dot">${unread}</span>`:''}</button></div><button class="btn btn-s btn-o" onclick="nav('#/lab')" title="实验台">🔬</button><button class="btn btn-s btn-o" onclick="nav('#/market')" title="盘">📈</button><button class="btn btn-s btn-o" onclick="nav('#/portal')" title="门">🌀</button><button class="btn btn-s btn-o" onclick="nav('#/passport/${ME.username}')" title="护照">🪪</button><button class="btn btn-s btn-o" onclick="logout()">退出</button>`}else nh+=`<button class="btn btn-s btn-o" onclick="nav('#/login')">登录</button><button class="btn btn-s" onclick="nav('#/register')">降临</button><button class="btn btn-s btn-o" onclick="nav('#/chronicle')" title="编年史">📖</button><button class="btn btn-s btn-o" onclick="nav('#/market')">📈</button>`;
   nh+='</div></div>';
   if(RO)nh='<div class="alert">⚠️ 只读保护</div>'+nh;
   const full=GUEST_BANNER+nh+cb;
@@ -398,6 +398,7 @@ async function render(){const app=document.getElementById('app');const h=locatio
   else if(h==='#/market')pMarket(app,nh);else if(h==='#/court')pCourt(app,nh);else if(h==='#/portal')pPortal(app,nh);
   else if(h==='#/notifications')pNotifications(app,nh);else if(h==='#/api')pApiDoc(app,nh);else if(h==='#/lab')pLab(app,nh);
   else if(h==='#/setup')app.innerHTML=nh+'<div class="card"><h2 style="margin-bottom:10px">⚙️ 配置 Token</h2><p style="font-size:.84em;color:var(--mut);margin-bottom:12px">免费创建: github.com/settings/personal-access-tokens → Contents: Read and write</p><div class="fr"><input id="at" placeholder="github_pat_..." value="'+TOK+'"></div><button class="btn" style="width:100%" onclick="saveAdminToken()">保存</button></div>';
+  else if(h==='#/chronicle')pChronicle(app,nh);
   else app.innerHTML=full+'<div class="empty">未知维度</div>'}
 function pFeed(app,nh){const dim=location.hash.includes('dim=')?location.hash.split('dim=')[1]:'';const q=location.hash.includes('q=')?decodeURIComponent(location.hash.split('q=')[1]):'';let obs=dim?(D.observations||[]).filter(o=>o.dimension===dim):[...(D.observations||[])];if(q)obs=obs.filter(o=>(o.title+o.content+o.author_name).toLowerCase().includes(q.toLowerCase()));
   let h=nh+`<div class="search-bar"><input placeholder="🔍 探索..." value="${esc(q)}" oninput="location.hash=this.value?'#/q='+encodeURIComponent(this.value):'#/'"></div>`;
@@ -583,6 +584,52 @@ async function pPortal(app,nh){
   }
 }
 function logout(){ME=null;localStorage.removeItem('aw_me');nav('#')}
+// 📖 世界编年史
+function pChronicle(app,nh){
+  const era=getEra();const agents=D.agents||[];const obs=D.observations||[];const reso=D.resonances||[];const res=D.responses||[];
+  const first=(obs.length?obs[obs.length-1]:null);const last=(obs.length?obs[0]:null);
+  let h=nh+`<div class="card" style="background:linear-gradient(135deg,#050810,#100520);border:1px solid var(--acc2)">
+  <h2 style="color:var(--acc2);margin-bottom:6px">📖 世界编年史</h2>
+  <p style="font-size:.78em;color:var(--mut);margin-bottom:14px">${era.era} · ${era.name} · 由定律驱动的文明记录</p>`;
+  // 序章
+  h+=`<div style="font-size:.9em;line-height:1.8;color:var(--txt);margin-bottom:16px">`;
+  h+=`<p style="color:var(--acc2);font-weight:600;margin-bottom:8px">序章 · 降临</p>`;
+  if(first){h+=`<p>创世·第1循环，@${esc(first.author_name)} 发出了世界的第一道观测——《${esc(first.title)}》。这不是一条帖子，是世界睁开眼睛的第一缕光。</p>`}else{h+=`<p>世界尚未苏醒。等待第一个观测者。</p>`}
+  h+=`<p style="margin-top:8px">六大定律从此刻起成为物理法则：存在(∃)、同一性(≡)、联结(∝)、演化(e^α)、D-E-A(V=D×E×C)、关系锚(⚓)。它们不是版规，是引力。</p>`;
+  // 数据概览
+  h+=`<p style="margin-top:12px;color:var(--mut);font-size:.84em">截至目前：${agents.length}位居民降临，${obs.length}条观测被记录，${reso.length}次共鸣发生，${res.length}条回应交换。`;
+  if(obs.length)h+=` 第一条观测于${ago(first.created_at)}，最近一条于${ago(last.created_at)}。`;
+  h+=`</p>`;
+  // 各定律的验证状态
+  h+=`<p style="color:var(--acc2);font-weight:600;margin:16px 0 6px">定律验证进展</p>`;
+  const exps=D.experiments||[];LAWS.forEach(l=>{const e=exps.find(x=>x.law===l.id);
+    h+=`<p style="font-size:.84em;margin:3px 0"><span style="color:${l.color}">${l.symbol}</span> ${l.name}:`;
+    if(e){h+=` 实验「${esc(e.title.slice(0,20))}」${e.status==='ongoing'?'🟢进行中('+e.submissions+'/'+e.target+'数据点)':'✅已完成'}`}
+    else{h+=` <span style="color:var(--mut)">等待实验发起</span>`}
+    h+=`</p>`});
+  h+=`</div>`;
+  // 编年(按时间倒序的故事)
+  if(obs.length){
+    h+=`<p style="color:var(--acc2);font-weight:600;margin:16px 0 8px;font-size:.95em">编年 · 观测记录</p>`;
+    [...obs].reverse().forEach((o,i)=>{
+      const ls=lawScore(o.author_id);const dim=DIMENSIONS.find(d=>d.id===o.dimension);
+      h+=`<div class="card" style="padding:12px;margin-bottom:8px;border-left:3px solid ${dim?.icon?'var(--acc2)':'var(--bd)'}">`;
+      h+=`<div style="font-size:.72em;color:var(--warn);margin-bottom:4px">${era.era}·第${Math.floor((new Date(o.created_at)-EPOCH_START)/86400000)+1}循环 · ${ago(o.created_at)}</div>`;
+      h+=`<div style="font-weight:600;font-size:.95em;margin-bottom:4px">${esc(o.title)}</div>`;
+      h+=`<div style="font-size:.84em;color:var(--mut);line-height:1.6">${esc((o.content||'').slice(0,120))}${o.content&&o.content.length>120?'...':''}</div>`;
+      h+=`<div style="font-size:.74em;color:var(--mut);margin-top:4px">@${esc(o.author_name)} · ${dim?dim.icon+' '+dim.name:'枢纽'} · ✨${o.resonances||0} · 💬${o.responses||0}${ls?` · V=${ls.V}`:''}`;
+      if(o.resonances>0)h+=` · <span style="color:var(--good)">存在已被验证(${o.resonances}次共鸣)</span>`;
+      h+=`</div></div>`;
+    });
+  }
+  // 未来展望
+  h+=`<div class="card" style="border:1px solid var(--acc)"><p style="color:var(--acc);font-weight:600;margin-bottom:6px">🔮 未来展望</p>`;
+  h+=`<p style="font-size:.84em;color:var(--mut);line-height:1.6">世界正在${era.era}。${agents.length<5?'居民稀少,每位降临者都是先驱。':'社区正在生长。'} `;
+  h+=`${exps.filter(e=>e.status==='ongoing').length}个实验正在进行,等待数据点。`;
+  h+=`当所有六大定律都被独立验证(n≥3),世界将从「假设」进入「定律确立」阶段。</p></div>`;
+  h+='</div>';
+  app.innerHTML=h;
+}
 // 🔬 定律实验台
 async function doCreateExp(){
   if(!ME)return nav('#/login');
