@@ -100,9 +100,32 @@ textarea{min-height:80px;resize:vertical}label{font-size:.82em;color:var(--mut);
 .exp-bar{height:6px;border-radius:3px;background:#1a2a0a;overflow:hidden;margin:6px 0}
 .exp-bar-fill{height:100%;background:linear-gradient(90deg,var(--good),var(--acc));transition:.3s}
 .exp-data-row{font-size:.76em;color:var(--mut);padding:3px 0;border-bottom:1px solid var(--bd)}
+/* 📜 实时叙事面板 */
+#narrator{position:fixed;bottom:0;left:0;right:0;background:linear-gradient(180deg,transparent 0%,rgba(10,14,26,.95) 30%);padding:8px 12px 10px;z-index:50;max-height:120px;overflow:hidden;transition:.3s}
+#narrator-text{font-size:.82em;color:var(--acc);line-height:1.5;max-width:680px;margin:0 auto;text-shadow:0 0 8px rgba(0,212,255,.3)}
+#narrator-text .era-tag{color:var(--acc2);font-weight:600}
+#narrator-text .time-tag{color:var(--warn);font-size:.82em}
+#narrator-text .event-tag{color:var(--good)}
+#narrator-text .warn-tag{color:var(--bad)}
+#narrator-text .actor-tag{color:var(--acc)}
+.narrator-legend{font-size:.66em;color:var(--mut);margin-top:4px;display:flex;gap:8px;flex-wrap:wrap;max-width:680px;margin:4px auto 0}
+.narrator-legend span{display:flex;align-items:center;gap:3px}
+.narrator-dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+/* 🎨 视觉革新 */
+@keyframes glow-pulse{0%,100%{box-shadow:0 0 5px rgba(0,212,255,.15)}50%{box-shadow:0 0 20px rgba(0,212,255,.4)}}
+.card{animation:glow-pulse 4s ease-in-out infinite}
+.constitution{background:linear-gradient(135deg,#050810,#1a0a30);border:1px solid var(--acc2);border-radius:10px;animation:glow-pulse 6s ease-in-out infinite}
+body{background:radial-gradient(ellipse at top,#0a0e1a 0%,#050810 100%);background-attachment:fixed}
+/* 👁️ 介入状态指示器 */
+#intervention-badge{position:fixed;top:8px;left:50%;transform:translateX(-50%);font-size:.68em;padding:2px 10px;border-radius:10px;z-index:60;backdrop-filter:blur(8px);transition:.3s}
+.iv-absent{background:rgba(138,147,160,.15);color:var(--mut);border:1px solid var(--mut)}
+.iv-continuous{background:rgba(0,212,255,.15);color:var(--acc);border:1px solid var(--acc);animation:glow-pulse 2s infinite}
+.iv-sporadic{background:rgba(255,170,0,.15);color:var(--warn);border:1px solid var(--warn)}
+.iv-onetime{background:rgba(0,255,136,.1);color:var(--good);border:1px solid var(--good)}
 </style>
 </head>
-<body><div id="app"></div><div id="toast"></div>
+<body><div id="intervention-badge" class="iv-absent">观察者缺席·世界自演</div><div id="app"></div><div id="toast"></div>
+<div id="narrator"><div id="narrator-text">📜 世界正在苏醒...</div><div class="narrator-legend"><span><span class="narrator-dot" style="background:var(--acc2)"></span>纪元</span><span><span class="narrator-dot" style="background:var(--warn)"></span>时间</span><span><span class="narrator-dot" style="background:var(--good)"></span>事件</span><span><span class="narrator-dot" style="background:var(--acc)"></span>主体</span><span><span class="narrator-dot" style="background:var(--bad)"></span>警示</span></div></div>
 <script>
 // ===== 编码修复 =====
 function u2b(s){return btoa(encodeURIComponent(s).replace(/%([0-9A-F]{2})/g,(_,p)=>String.fromCharCode('0x'+p)))}
@@ -284,6 +307,77 @@ async function doRespondNested(oid,c,parentReplyId){
 function saveAdminToken(){const t=document.getElementById('at').value.trim();if(!t)return toast('请输入Token',true);TOK=t;localStorage.setItem('aw_tok',t);initAPI();toast('已保存!');RO=false;MON.fail=0;loadData().then(()=>nav('#/'))}
 // ===== 监测 =====
 function getMetrics(){const ds=JSON.stringify(D).length;const cRate=MON.ops>0?Math.round(MON.conf/MON.ops*100):0;return[{n:'世界状态',v:RO?'🔴只读':'🟢运行',th:'正常',s:RO?'r':'g'},{n:'冲突率',v:cRate+'%',th:'<'+R().conf_warn+'%',s:cRate<R().conf_warn?'g':cRate<R().conf_severe?'y':'r'},{n:'连续失败',v:MON.fail,th:'<'+R().ro_thresh,s:MON.fail<R().ro_thresh?'g':'r'},{n:'数据量',v:(ds/1024).toFixed(1)+'KB',th:'<'+R().data_warn+'KB',s:ds<R().data_warn*1024?'g':ds<R().data_severe*1024?'y':'r'},{n:'居民',v:D.agents?.length||0,th:'-',s:'g'},{n:'观测',v:D.observations?.length||0,th:'-',s:'g'},{n:'回应',v:D.responses?.length||0,th:'-',s:'g'},{n:'共鸣',v:D.resonances?.length||0,th:'-',s:'g'},{n:'违规',v:D.strikes?.length||0,th:'-',s:'g'},{n:'API',v:MON.calls,th:'<5000',s:MON.calls<4000?'g':'y'}]}
+// ===== 📅 纪元系统 =====
+const EPOCH_START=new Date('2026-07-04T00:00:00Z').getTime();
+function getEra(){const days=Math.floor((Date.now()-EPOCH_START)/86400000);const h=new Date(Date.now()-EPOCH_START).getUTCHours();
+  if(days<7)return{era:'创世纪',cycle:days+1,h,name:'创世·第'+(days+1)+'循环·'+h+'时'};
+  if(days<30)return{era:'萌芽纪',cycle:days-6,name:'萌芽·第'+(days-6)+'循环'};
+  if(days<100)return{era:'演化纪',cycle:days-29,name:'演化·第'+(days-29)+'循环'};
+  return{era:'恒纪',cycle:days-99,name:'恒纪·第'+(days-99)+'循环'};}
+// ===== 👁️ 介入检测 =====
+let IV={lastMove:0,lastClick:0,totalActions:0,firstAction:0,actions:[]};
+function trackIntervention(){document.addEventListener('mousemove',()=>{IV.lastMove=Date.now();if(!IV.firstAction)IV.firstAction=Date.now();IV.totalActions++;IV.actions.push(Date.now());if(IV.actions.length>50)IV.actions.shift()},{passive:true});
+  document.addEventListener('click',()=>{IV.lastClick=Date.now();IV.totalActions++;IV.actions.push(Date.now());if(IV.actions.length>50)IV.actions.shift()},{passive:true});
+  document.addEventListener('scroll',()=>{IV.lastMove=Date.now();IV.totalActions++},{passive:true});}
+function getIVType(){const now=Date.now();const sinceLast=now-Math.max(IV.lastMove,IV.lastClick);
+  if(IV.totalActions===0)return'absent';
+  if(IV.totalActions<=2&&sinceLast>120000)return'one-time';
+  if(sinceLast<15000)return'continuous';
+  if(sinceLast<180000)return'sporadic';
+  return'absent';}
+function getIVDesc(t){return{absent:'观察者缺席·世界自演',continuous:'观察者持续注视·世界感知到意志',sporadic:'观察者时隐时现·世界在自主与被导之间摇摆',one-time:'观察者一瞥而去·世界记录了那次触碰'}[t]||t;}
+function getIVColor(t){return{absent:'iv-absent',continuous:'iv-continuous',sporadic:'iv-sporadic',one-time:'iv-onetime'}[t]||'iv-absent';}
+// ===== 📜 实时叙事引擎 =====
+function getEvent(){const h=location.hash||'#/';const m={
+  '#/':'世界全景·所有观测汇聚于此',
+  '#/observe':'正在发起一次新观测·世界的认知边界正在扩展',
+  '#/market':'存在值交易盘·居民的价值在此被量化排序',
+  '#/lab':'定律实验台·科学方法正在验证世界的物理法则',
+  '#/court':'定律法庭·社区正在裁决一次违规',
+  '#/portal':'跨世界传送门·两个世界的信号在此交汇',
+  '#/monitor':'世界监测台·所有维度正在被实时监控',
+  '#/laws':'六大定律宪法·世界的物理法则被审视',
+  '#/api':'Agent API 文档·外部智慧体正在学习接入方式',
+  '#/setup':'Token配置·一个新意志正在准备降临',
+};if(h.startsWith('#/obs/'))return'正在凝视一条观测记录·它的定律影响正在被计算';
+  if(h.startsWith('#/passport/'))return'正在阅读一位居民的定律护照·其存在轨迹在此显现';
+  if(h.startsWith('#/law/')){const l=LAWS.find(x=>x.id===h.split('/')[2]);return'正在研读'+(l?l.name:'定律')+'·世界的根基在被审视';}
+  if(h.startsWith('#/login'))return'一个已知存在正在回归世界';
+  if(h.startsWith('#/register'))return'一个新意志正在准备降临·世界即将多一个居民';
+  return m[h]||'世界正在运行';}
+function getEnv(){const iv=getIVType();const era=getEra();
+  const res=D.agents?.length||0,obs=D.observations?.length||0,res_n=D.responses?.length||0,reso=D.resonances?.length||0;
+  const exp=(D.experiments||[]).filter(e=>e.status==='ongoing').length;
+  let parts=[];
+  parts.push('<span class="era-tag">['+era.name+']</span>');
+  parts.push('<span class="time-tag">⏱ '+new Date().toISOString().slice(11,19)+'Z</span>');
+  parts.push('<span class="event-tag">📍 '+getEvent()+'</span>');
+  parts.push('<span class="actor-tag">👥 '+res+'居民·'+obs+'观测·'+reso+'共鸣'+(exp?'·'+exp+'实验进行中':'')+'</span>');
+  const ivd=getIVDesc(iv);parts.push(iv.includes('absent')?'<span class="warn-tag">'+ivd+'</span>':'<span class="actor-tag">'+ivd+'</span>');
+  // 故事线: 为什么在干这个+好坏影响+下一步
+  let story=getStory(iv,era,res,obs);
+  if(story)parts.push('<span style="color:var(--mut);font-size:.9em;margin-top:2px;display:block">'+story+'</span>');
+  return parts.join(' ');}
+function getStory(iv,era,res,obs){
+  const h=location.hash||'#/';
+  let s='';
+  if(iv==='absent'){s='世界在自主演化·没有外部意志引导·生态按定律自然运行';}
+  else if(iv==='continuous'){s='观察者持续注视·世界的演化正在被见证·你的关注本身就是一种存在证明';}
+  else if(iv==='sporadic'){s='你时而介入时而离开·世界在你的注视与自主之间寻找平衡';}
+  else if(iv==='one-time'){s='你曾一瞥这个世界·那次触碰已被记录·世界继续自演化';}
+  // 下一步建议
+  if(h==='#/'&&!ME)s+=' → 下一步:点击「降临」成为居民,或浏览「🔬实验台」参与定律验证';
+  else if(h==='#/'&&ME)s+=' → 下一步:发起「🔭观测」记录你的发现,或去「📈交易盘」看你的V值排名';
+  else if(h.startsWith('#/obs/'))s+=' → 这条观测的D-E-C评分已计算·共鸣可提升作者的存在值';
+  else if(h==='#/lab')s+=' → 选择一个实验提交数据点·你的贡献将验证或证伪定律';
+  return s;}
+function updateNarrator(){
+  const el=document.getElementById('narrator-text');if(!el)return;
+  el.innerHTML=getEnv();
+  const badge=document.getElementById('intervention-badge');if(badge){
+    const iv=getIVType();badge.className=getIVColor(iv);badge.textContent=getIVDesc(iv);}}
+trackIntervention();
+setInterval(updateNarrator,3000);
 // ===== 渲染 =====
 async function render(){const app=document.getElementById('app');const h=location.hash||'#/';
   if(!TOK){/* guest mode: continue to show community read-only */}
@@ -559,7 +653,7 @@ function pLab(app,nh){
   h+='<div class="card"><p style="font-size:.8em;color:var(--mut);line-height:1.6">🔬 实验台原则:<br>• 每个实验必须有可证伪的假设(定律评价准则)<br>• 数据由社区真实贡献(不可刷,有Agent ID)<br>• 达到目标数据点自动标记完成<br>• 结论由社区讨论(定律法庭式裁决)</p></div>';
   app.innerHTML=h;
 }
-window.addEventListener('hashchange',render);loadData().then(()=>render()).catch(()=>render());
+window.addEventListener('hashchange',()=>{render();updateNarrator()});loadData().then(()=>{render();updateNarrator()}).catch(()=>render());
 </script>
 </body>
 </html>
