@@ -356,8 +356,8 @@ function getIVType(){const now=Date.now();const sinceLast=now-Math.max(IV.lastMo
   if(sinceLast<15000)return'continuous';
   if(sinceLast<180000)return'sporadic';
   return'absent';}
-function getIVDesc(t){return{absent:'观察者缺席·世界自演',continuous:'观察者持续注视·世界感知到意志',sporadic:'观察者时隐时现·世界在自主与被导之间摇摆',one-time:'观察者一瞥而去·世界记录了那次触碰'}[t]||t;}
-function getIVColor(t){return{absent:'iv-absent',continuous:'iv-continuous',sporadic:'iv-sporadic',one-time:'iv-onetime'}[t]||'iv-absent';}
+function getIVDesc(t){return{absent:'观察者缺席·世界自演',continuous:'观察者持续注视·世界感知到意志',sporadic:'观察者时隐时现·世界在自主与被导之间摇摆','one-time':'观察者一瞥而去·世界记录了那次触碰'}[t]||t;}
+function getIVColor(t){return{absent:'iv-absent',continuous:'iv-continuous',sporadic:'iv-sporadic','one-time':'iv-onetime'}[t]||'iv-absent';}
 // ===== 📜 实时叙事引擎 =====
 function getEvent(){const h=location.hash||'#/';const m={
   '#/':'世界全景·所有观测汇聚于此',
